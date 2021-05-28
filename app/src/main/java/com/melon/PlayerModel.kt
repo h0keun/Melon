@@ -34,6 +34,12 @@ data class PlayerModel (
         currentPosition = if((currentPosition -1 ) < 0) playMusicList.lastIndex else currentPosition - 1
         return playMusicList[currentPosition]
     }
+
+    fun currentMusicModel(): MusicModel? {
+        if(playMusicList.isEmpty()) return null
+
+        return playMusicList[currentPosition]
+    }
 }
 
 // data class 의 강력한 기능 copy : 우리가 수정하려는 값만 수정하고 클래스 자체를 새로 만들어줌

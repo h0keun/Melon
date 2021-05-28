@@ -1,12 +1,15 @@
 package com.melon
 
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.os.Bundle
 import android.view.View
+import android.widget.SeekBar
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -18,14 +21,20 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 class PlayerFragment : Fragment(R.layout.fragment_player) {
 
     private var model: PlayerModel = PlayerModel()
     private var binding: FragmentPlayerBinding? = null
+
     // private var isWatchingPlayListView = true : 위치이동(PlayerModel)
     private var player: SimpleExoPlayer? = null
     private lateinit var playListAdapter: PlayListAdapter
+
+    private val updateSeekRunnable = Runnable {
+        updateSeek()
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -36,9 +45,25 @@ class PlayerFragment : Fragment(R.layout.fragment_player) {
         initPlayView(fragmentPlayerBinding)
         initPlayListButton(fragmentPlayerBinding)
         initPlayControlButtons(fragmentPlayerBinding)
+        initSeekBar(fragmentPlayerBinding)
         initRecyclerView(fragmentPlayerBinding)
 
         getVideoListFromServer()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun initSeekBar(fragmentPlayerBinding: FragmentPlayerBinding) {
+        fragmentPlayerBinding.playerSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {
+                player?.seekTo((seekBar.progress * 1000).toLong())
+            }
+        })
+
+        fragmentPlayerBinding.playListSeekBar.setOnTouchListener { v, event ->
+            false
+        }
     }
 
     private fun initPlayControlButtons(fragmentPlayerBinding: FragmentPlayerBinding) {
@@ -81,17 +106,72 @@ class PlayerFragment : Fragment(R.layout.fragment_player) {
                     }
                 }
 
+                override fun onPlaybackStateChanged(state: Int) {
+                    super.onPlaybackStateChanged(state)
+
+                    updateSeek()
+                }
+
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     super.onMediaItemTransition(mediaItem, reason)
 
                     val newIndex = mediaItem?.mediaId ?: return
                     model.currentPosition = newIndex.toInt()
+                    updatePlayerView(model.currentMusicModel())
+
                     playListAdapter.submitList(model.getAdapterModels())
                     // DiffUtil 을 통한 UI 업데이트비용 : 낮음.
                     // data class - Copy 를 통해 isPlaying 값만 바꾸어 주었기 때문에
                     // 전체List 다시 그리는게 아니라 isPlaying 이 true > false 혹은 false > true 된 부분만 리프래쉬 해줌
                 }
             })
+        }
+    }
+
+    private fun updateSeek() {
+
+        val player = this.player ?: return // null처리
+        val duration = if (player.duration >= 0) player.duration else 0
+        val position = player.currentPosition
+
+        updateSeekUi(duration, position)
+
+        val state = player.playbackState
+
+        view?.removeCallbacks(updateSeekRunnable)
+        if(state != Player.STATE_IDLE && state != Player.STATE_ENDED) {
+            view?.postDelayed(updateSeekRunnable, 1000)
+        }
+    }
+
+    private fun updateSeekUi(duration: Long, position: Long) {
+
+        binding?.let{ binding ->
+            binding.playListSeekBar.max = (duration / 1000).toInt()
+            binding.playListSeekBar.progress = (position / 1000).toInt()
+
+            binding.playerSeekBar.max = (duration / 1000).toInt()
+            binding.playerSeekBar.progress = (position / 1000).toInt()
+
+            binding.playTimeTextView.text = String.format("%02d:%02d",
+                TimeUnit.MINUTES.convert(position, TimeUnit.MILLISECONDS),
+                (position / 1000) % 60)
+            binding.totalTimeTextView.text = String.format("%02d:%02d",
+                TimeUnit.MINUTES.convert(duration, TimeUnit.MILLISECONDS),
+                (duration / 1000) % 60)
+        }
+    }
+
+    private fun updatePlayerView(currentMusicModel: MusicModel?) {
+        currentMusicModel ?: return
+
+        binding?.let { binding ->
+            binding.trackTextView.text = currentMusicModel.track
+            binding.artistTextView.text = currentMusicModel.artist
+            Glide.with(binding.coverImageView.context)
+                .load(currentMusicModel.coverUrl)
+                .into(binding.coverImageView)
+
         }
     }
 
@@ -108,26 +188,50 @@ class PlayerFragment : Fragment(R.layout.fragment_player) {
 
     private fun initPlayListButton(fragmentPlayerBinding: FragmentPlayerBinding) {
         fragmentPlayerBinding.playlistImageView.setOnClickListener {
-            if(model.currentPosition == -1) return@setOnClickListener
+            if (model.currentPosition == -1) return@setOnClickListener
             fragmentPlayerBinding.playerViewGroup.isVisible = model.isWatchingPlayListView
             fragmentPlayerBinding.playerListViewGroup.isVisible = model.isWatchingPlayListView.not()
 
             model.isWatchingPlayListView = !model.isWatchingPlayListView
 
             binding?.let { binding ->
-                if(model.isWatchingPlayListView){
+                if (model.isWatchingPlayListView) {
                     apply {
-                        binding.playControlImageView.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                        binding.playlistImageView.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                        binding.skipNextImageView.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                        binding.skipPrevImageView.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        binding.playControlImageView.setColorFilter(
+                            Color.WHITE,
+                            PorterDuff.Mode.SRC_IN
+                        )
+                        binding.playlistImageView.setColorFilter(
+                            Color.WHITE,
+                            PorterDuff.Mode.SRC_IN
+                        )
+                        binding.skipNextImageView.setColorFilter(
+                            Color.WHITE,
+                            PorterDuff.Mode.SRC_IN
+                        )
+                        binding.skipPrevImageView.setColorFilter(
+                            Color.WHITE,
+                            PorterDuff.Mode.SRC_IN
+                        )
                     }
-                }else{
+                } else {
                     apply {
-                        binding.playControlImageView.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
-                        binding.playlistImageView.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
-                        binding.skipNextImageView.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
-                        binding.skipPrevImageView.setColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
+                        binding.playControlImageView.setColorFilter(
+                            Color.BLACK,
+                            PorterDuff.Mode.SRC_IN
+                        )
+                        binding.playlistImageView.setColorFilter(
+                            Color.BLACK,
+                            PorterDuff.Mode.SRC_IN
+                        )
+                        binding.skipNextImageView.setColorFilter(
+                            Color.BLACK,
+                            PorterDuff.Mode.SRC_IN
+                        )
+                        binding.skipPrevImageView.setColorFilter(
+                            Color.BLACK,
+                            PorterDuff.Mode.SRC_IN
+                        )
                     }
                 }
             }
@@ -173,7 +277,7 @@ class PlayerFragment : Fragment(R.layout.fragment_player) {
     }
 
     private fun setMusicList(modelList: List<MusicModel>) {
-        context?.let{
+        context?.let {
             player?.addMediaItems(modelList.map { musicModel ->
                 MediaItem.Builder()
                     .setMediaId(musicModel.id.toString())
@@ -189,6 +293,21 @@ class PlayerFragment : Fragment(R.layout.fragment_player) {
         model.updateCurrentPosition(musicModel)
         player?.seekTo(model.currentPosition, 0)
         player?.play()
+    }
+
+    override fun onStop() {
+        super.onStop()
+
+        player?.pause()
+        view?.removeCallbacks(updateSeekRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        binding = null
+        player?.release()
+        view?.removeCallbacks(updateSeekRunnable)
     }
 
     companion object { // newInstance 로 인자를 넘겨줄 때 apply 를 통해 arguments 를 쉽게 추가해줄 수 있다.
