@@ -5,6 +5,7 @@ import android.util.Log
 import android.view.View
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.melon.databinding.FragmentPlayerBinding
 import com.melon.service.MusicDto
 import com.melon.service.MusicService
@@ -18,6 +19,7 @@ class PlayerFragment: Fragment(R.layout.fragment_player) {
 
     private var binding: FragmentPlayerBinding? = null
     private var isWatchingPlayListView = true
+    private lateinit var playListAdapter: PlayListAdapter
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -25,8 +27,26 @@ class PlayerFragment: Fragment(R.layout.fragment_player) {
         val fragmentPlayerBinding = FragmentPlayerBinding.bind(view)
         binding = fragmentPlayerBinding
 
+        initPlayView(fragmentPlayerBinding)
         initPlayListButton(fragmentPlayerBinding)
+        initRecyclerView(fragmentPlayerBinding)
+
         getVideoListFromServer()
+    }
+
+    private fun initPlayView(fragmentPlayerBinding: FragmentPlayerBinding) {
+        
+    }
+
+    private fun initRecyclerView(fragmentPlayerBinding: FragmentPlayerBinding) {
+        playListAdapter = PlayListAdapter {
+            // todo 음악을 재생
+        }
+
+        fragmentPlayerBinding.playListRecyclerView.apply{
+            adapter = playListAdapter
+            layoutManager = LinearLayoutManager(context)
+        }
     }
 
     private fun initPlayListButton(fragmentPlayerBinding: FragmentPlayerBinding) {
@@ -54,12 +74,12 @@ class PlayerFragment: Fragment(R.layout.fragment_player) {
                             call: Call<MusicDto>,
                             response: Response<MusicDto>
                         ) {
-                            Log.d("PlayerFragment", "${response.body()}")
-
+                            //Log.d("PlayerFragment", "${response.body()}")
                             response.body()?.let {
                                 val modelList = it.musics.mapIndexed{ index, musicEntity ->
                                     musicEntity.mapper(index.toLong()) // 확장해서 mapper 선언해줬기 때문에 가능
                                 }
+                                playListAdapter.submitList(modelList)
                             }
                         }
 
