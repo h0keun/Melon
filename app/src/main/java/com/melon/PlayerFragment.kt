@@ -3,7 +3,9 @@ package com.melon
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import com.melon.databinding.FragmentPlayerBinding
 import com.melon.service.MusicDto
 import com.melon.service.MusicService
 import retrofit2.Call
@@ -14,11 +16,28 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class PlayerFragment: Fragment(R.layout.fragment_player) {
 
+    private var binding: FragmentPlayerBinding? = null
+    private var isWatchingPlayListView = true
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val fragmentPlayerBinding = FragmentPlayerBinding.bind(view)
+        binding = fragmentPlayerBinding
 
+        initPlayListButton(fragmentPlayerBinding)
         getVideoListFromServer()
+    }
+
+    private fun initPlayListButton(fragmentPlayerBinding: FragmentPlayerBinding) {
+        // todo 만약 서버에서 데이터가 다 불려오지 않은 상태 일 때
+
+        fragmentPlayerBinding.playlistImageView.setOnClickListener {
+            fragmentPlayerBinding.playerViewGroup.isVisible = isWatchingPlayListView
+            fragmentPlayerBinding.playerListViewGroup.isVisible = isWatchingPlayListView.not()
+
+            isWatchingPlayListView = !isWatchingPlayListView
+        }
     }
 
     private fun getVideoListFromServer() {
@@ -36,6 +55,12 @@ class PlayerFragment: Fragment(R.layout.fragment_player) {
                             response: Response<MusicDto>
                         ) {
                             Log.d("PlayerFragment", "${response.body()}")
+
+                            response.body()?.let {
+                                val modelList = it.musics.mapIndexed{ index, musicEntity ->
+                                    musicEntity.mapper(index.toLong()) // 확장해서 mapper 선언해줬기 때문에 가능
+                                }
+                            }
                         }
 
                         override fun onFailure(call: Call<MusicDto>, t: Throwable) {
