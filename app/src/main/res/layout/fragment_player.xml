@@ -185,8 +185,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/playerView"
-        app:tint="@color/background" />
+        app:layout_constraintTop_toTopOf="@id/playerView"/>
 
     <ImageView
         android:id="@+id/skipNextImageView"
@@ -197,8 +196,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.2"
         app:layout_constraintStart_toEndOf="@id/playControlImageView"
-        app:layout_constraintTop_toTopOf="@id/playerView"
-        app:tint="@color/background" />
+        app:layout_constraintTop_toTopOf="@id/playerView"/>
 
     <ImageView
         android:id="@+id/skipPrevImageView"
@@ -209,8 +207,7 @@
         app:layout_constraintEnd_toStartOf="@id/playControlImageView"
         app:layout_constraintHorizontal_bias="0.8"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/playerView"
-        app:tint="@color/background" />
+        app:layout_constraintTop_toTopOf="@id/playerView"/>
 
     <ImageView
         android:id="@+id/playlistImageView"
@@ -220,8 +217,7 @@
         android:src="@drawable/ic_baseline_playlist_play_48"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/playerView"
-        app:tint="@color/background" />
+        app:layout_constraintTop_toTopOf="@id/playerView"/>
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
